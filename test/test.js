@@ -42,7 +42,7 @@ var simplify = require('../simplify'),
     t = require('tape');
 
 t('simplifies points correctly with the given tolerance', function (t) {
-    var result = simplify(points, 5);
+    var result = simplify(points, false, 5);
     t.same(result, simplified);
     t.end();
 });

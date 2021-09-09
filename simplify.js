@@ -10,7 +10,7 @@
 // for 3D version, see 3d branch (configurability would draw significant performance overhead)
 
 // square distance between 2 points
-function getSqDist(p1, p2) {
+function getSqDist2(p1, p2) {
 
     var dx = p1.x - p2.x,
         dy = p1.y - p2.y;
@@ -18,8 +18,17 @@ function getSqDist(p1, p2) {
     return dx * dx + dy * dy;
 }
 
+function getSqDist3(p1, p2) {
+
+    var dx = p1.x - p2.x,
+        dy = p1.y - p2.y,
+        dz = p1.z - p2.z;
+
+    return dx * dx + dy * dy + dz * dz;
+}
+
 // square distance from a point to a segment
-function getSqSegDist(p, p1, p2) {
+function getSqSegDist2(p, p1, p2) {
 
     var x = p1.x,
         y = p1.y,
@@ -45,10 +54,42 @@ function getSqSegDist(p, p1, p2) {
 
     return dx * dx + dy * dy;
 }
+
+function getSqSegDist3(p, p1, p2) {
+
+    var x = p1.x,
+        y = p1.y,
+        z = p1.z,
+        dx = p2.x - x,
+        dy = p2.y - y,
+        dz = p2.z - z;
+
+    if (dx !== 0 || dy !== 0 || dz !== 0) {
+
+        var t = ((p.x - x) * dx + (p.y - y) * dy + (p.z - z) * dz) /
+                (dx * dx + dy * dy + dz * dz);
+
+        if (t > 1) {
+            x = p2.x;
+            y = p2.y;
+            z = p2.z;
+        } else if (t > 0) {
+            x += dx * t;
+            y += dy * t;
+            z += dz * t;
+        }
+    }
+
+    dx = p.x - x;
+    dy = p.y - y;
+    dz = p.z - z;
+
+    return dx * dx + dy * dy + dz * dz;
+}
 // rest of the code doesn't care about point format
 
 // basic distance-based simplification
-function simplifyRadialDist(points, sqTolerance) {
+function simplifyRadialDist(points, sqTolerance, getSqDist) {
 
     var prevPoint = points[0],
         newPoints = [prevPoint],
@@ -68,7 +109,7 @@ function simplifyRadialDist(points, sqTolerance) {
     return newPoints;
 }
 
-function simplifyDPStep(points, first, last, sqTolerance, simplified) {
+function simplifyDPStep(points, first, last, sqTolerance, simplified, getSqSegDist) {
     var maxSqDist = sqTolerance,
         index;
 
@@ -82,32 +123,34 @@ function simplifyDPStep(points, first, last, sqTolerance, simplified) {
     }
 
     if (maxSqDist > sqTolerance) {
-        if (index - first > 1) simplifyDPStep(points, first, index, sqTolerance, simplified);
+        if (index - first > 1) simplifyDPStep(points, first, index, sqTolerance, simplified, getSqSegDist);
         simplified.push(points[index]);
-        if (last - index > 1) simplifyDPStep(points, index, last, sqTolerance, simplified);
+        if (last - index > 1) simplifyDPStep(points, index, last, sqTolerance, simplified, getSqSegDist);
     }
 }
 
 // simplification using Ramer-Douglas-Peucker algorithm
-function simplifyDouglasPeucker(points, sqTolerance) {
+function simplifyDouglasPeucker(points, sqTolerance, getSqSegDist) {
     var last = points.length - 1;
 
     var simplified = [points[0]];
-    simplifyDPStep(points, 0, last, sqTolerance, simplified);
+    simplifyDPStep(points, 0, last, sqTolerance, simplified, getSqSegDist);
     simplified.push(points[last]);
 
     return simplified;
 }
 
 // both algorithms combined for awesome performance
-function simplify(points, tolerance, highestQuality) {
+function simplify(points, is3D, tolerance, highestQuality) {
 
     if (points.length <= 2) return points;
 
     var sqTolerance = tolerance !== undefined ? tolerance * tolerance : 1;
 
-    points = highestQuality ? points : simplifyRadialDist(points, sqTolerance);
-    points = simplifyDouglasPeucker(points, sqTolerance);
+    // passing the function is the fastest way to make it switch 2d/3d because the hot functions don't rely on scope
+    // also it's the DRYest option
+    points = highestQuality ? points : simplifyRadialDist(points, sqTolerance, is3D ? getSqDist3:  getSqDist2);
+    points = simplifyDouglasPeucker(points, sqTolerance, is3D ? getSqSegDist3 : getSqSegDist2);
 
     return points;
 }
