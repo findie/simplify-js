@@ -3,6 +3,7 @@ var Benchmark = require('benchmark');
 var simplify = require('../simplify');
 
 var points = require('../test/fixtures/1k.json');
+points.forEach(p => p.z=p.x)
 
 console.log('Benchmarking simplify on ' + points.length + ' points...');
 
